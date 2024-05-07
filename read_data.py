@@ -38,6 +38,8 @@ from datetime import datetime, timedelta
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
+import geopy.distance
+
 def read_netcdf(path):
     data = NC.Dataset(path, 'r')
     latitude = data.variables['lat'][:]
@@ -70,6 +72,15 @@ def read_folder(folder_path, variables, extension='.nc'):
     combined_df = pd.concat(dataframes, ignore_index=True)
     return combined_df[variables]
 
+def calculate_speed(lat1, lon1, lat2, lon2, time1, time2):
+    coords_1 = (lat1, lon1)
+    coords_2 = (lat2, lon2)
+    distance_km = geopy.distance.geodesic(coords_1, coords_2).km
+    time_hours = (time2 - time1).total_seconds() / 3600
+    speed_kmh = distance_km / time_hours
+    # speed_knots = (distance_km / 1.852) / time_hours  # Convert km/h to knots
+    return speed_kmh
+
 def plot_data(df, variables):
     fig = plt.figure(figsize=(12, 5))
     gs = fig.add_gridspec(1, 2, width_ratios=[1, 1])
@@ -80,6 +91,7 @@ def plot_data(df, variables):
         line, = ax0.plot([], [], color='red', linewidth=2, transform=ccrs.PlateCarree(), label='Trajectory')
         coord_text = ax0.text(0.02, 0.05, '', transform=ax0.transAxes)
         time_text = ax0.text(0.98, 0.05, '', transform=ax0.transAxes, horizontalalignment='right')
+        speed_text = ax0.text(0.02, 0.10, '', transform=ax0.transAxes)
         line_var, = ax1.plot([], [], label=variables[0])
         
         # Calculate the extent of the map based on the trajectory data
@@ -87,8 +99,8 @@ def plot_data(df, variables):
         lon_min, lon_max = df['longitude'].min(), df['longitude'].max()
         
         # Add a small buffer to the extent
-        lat_buffer = (lat_max - lat_min) * 0.1
-        lon_buffer = (lon_max - lon_min) * 0.1
+        lat_buffer = (lat_max - lat_min) * 0.05
+        lon_buffer = (lon_max - lon_min) * 0.05
         
         # Set the extent of the map
         ax0.set_extent([lon_min - lon_buffer, lon_max + lon_buffer, lat_min - lat_buffer, lat_max + lat_buffer], crs=ccrs.PlateCarree())
@@ -148,15 +160,19 @@ def plot_data(df, variables):
         line.set_data([], [])
         coord_text.set_text('')
         time_text.set_text('')
+        speed_text.set_text('')
         line_var, = ax1.plot([], [], label=variables[0])
-        return line, coord_text, line_var, time_text
+        return line, coord_text, line_var, time_text, speed_text
     
     def animate(i):
+        if i > 0:
+            speed = calculate_speed(df['latitude'][i-1], df['longitude'][i-1], df['latitude'][i], df['longitude'][i], df['time'][i-1], df['time'][i])
+            speed_text.set_text(f"Speed: {speed:.2f} km/h")
         line.set_data(df['longitude'][:i+1], df['latitude'][:i+1])
         time_text.set_text(df['time'][i].strftime('%Y-%m-%d %H:%M:%S'))
         coord_text.set_text(f"Latitude: {df['latitude'][i]:.2f}, Longitude: {df['longitude'][i]:.2f}")
         line_var.set_data(df['time'][:i+1], df[variables[0]][:i+1])
-        return line, coord_text, line_var, time_text
+        return line, coord_text, line_var, time_text, speed_text
     
     ani = animation.FuncAnimation(fig, animate, frames=len(df), init_func=init, blit=True, interval=1)
     
