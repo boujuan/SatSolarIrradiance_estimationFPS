@@ -1,0 +1,32 @@
+- Plot satellite heatmap
+- Find acoustic doppler data from ship data.
+- Plot one against each other. (pyromiter ground data vs doppler (and against satellite))
+
+Timeseries plot of the two, two y axis. Interactive plot.
+
+DOPPLER DATA: Acoustic timescatter
+
+--------------------------------
+HTTP Scrap data of valid timerange from https://osi-saf.ifremer.fr/
+
+
+Rgi function (regular grid interpolator)
+lat from +60 to -60, lon from -150 to -10
+Interpolate a single point inside the grid.
+
+Interpolate satellite data also from time doman (60min->1min)
+(3D interpolation)
+
+---------------------------------
+
+- 2D interpolate (lat, lon) irradiance of the satellite data to the ship position
+Regular grid interpolate > Find out if its a regular grid
+- Averaged to hourly data
+
+-----------------
+
+- Sonar data (adcp) = Correlate levels of cytoplankton
+- Ask for paper on this
+
+Satellite vs ground
+Satellite vs adcp

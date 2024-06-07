@@ -24,6 +24,7 @@ Credit: github.com/boujuan/
 - netCDF4 [conda install -c conda-forge netcdf4]
 - matplotlib
 - cartopy
+- geopy (optional)
 """
 
 import os
@@ -161,7 +162,7 @@ def plot_data(df, variables):
         coord_text.set_text('')
         time_text.set_text('')
         speed_text.set_text('')
-        line_var, = ax1.plot([], [], label=variables[0])
+        line_var.set_data([], [])
         return line, coord_text, line_var, time_text, speed_text
     
     def animate(i):
@@ -173,9 +174,15 @@ def plot_data(df, variables):
         coord_text.set_text(f"Latitude: {df['latitude'][i]:.2f}, Longitude: {df['longitude'][i]:.2f}")
         line_var.set_data(df['time'][:i+1], df[variables[0]][:i+1])
         return line, coord_text, line_var, time_text, speed_text
-    
-    ani = animation.FuncAnimation(fig, animate, frames=len(df), init_func=init, blit=True, interval=1)
-    
+        
+    # Reduce the number of frames by only animating every nth frame
+    step = 10  # Adjust this based on your dataset size and desired smoothness
+    frames = range(0, len(df), step)
+
+    # Use a faster writing speed and lower resolution
+    ani = animation.FuncAnimation(fig, animate, frames=frames, init_func=init, blit=True, interval=1)
+    ani.save('animation2.mp4', writer='ffmpeg', fps=30, extra_args=['-preset', 'fast', '-crf', '22'])
+
     plt.show()
     
 # path = 'samos/netcdf/KAOU_20180825v10001.nc'
@@ -189,5 +196,8 @@ variables = ['latitude', 'longitude', 'time', 'radiation']
 variables_to_plot = ['radiation', 'latitude', 'longitude']
 
 df = read_folder(folder_path, variables, '.nc')
-print(df)
-plot_data(df, variables_to_plot)
+# print(df)
+print(df['time'].min())
+print(df['time'].max())
+# plot_data(df, variables_to_plot)
+
