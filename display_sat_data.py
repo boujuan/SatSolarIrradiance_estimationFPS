@@ -179,51 +179,43 @@ def animate_solar_irradiance(data_df, filename, ship_data_df=None):
     lon = initial_data['lon'].values
     lat = initial_data['lat'].values
     ssi = initial_data['ssi'].values
-    lon2d, lat2d = np.meshgrid(lon, lat)
-    heatmap = ax.pcolormesh(lon2d, lat2d, ssi, cmap='hot', shading='auto', transform=ccrs.PlateCarree())
 
-    # Create a colorbar on the left of the plot
-    cbar = plt.colorbar(heatmap, orientation='vertical', pad=0.1, aspect=20, location='left')
+    # Use scatter instead of pcolormesh
+    scatter = ax.scatter(lon, lat, c=ssi, cmap='hot', s=10, transform=ccrs.PlateCarree())  # s is the size of the point
+
+    # Create a colorbar
+    cbar = plt.colorbar(scatter, orientation='vertical', pad=0.1, aspect=20)
     cbar.set_label('Solar Irradiance (W/m²)')
 
     ship_marker = ax.plot([], [], 'x', color='red', markersize=5, transform=ccrs.Geodetic())[0]
     ssi_label = ax.text(0.05, 0.95, '', transform=ax.transAxes, color='white', fontsize=12, ha='left', va='top', bbox=dict(facecolor='black', alpha=0.5))
-
-    # Initialize an annotation for ship SSI on the colorbar
-    ship_ssi_annotation = ax.annotate("", xy=(0, 0), xytext=(-40, 0),
-                                      textcoords="offset points", arrowprops=dict(arrowstyle="->", color='red'))
 
     def update(frame):
         current_data = data_df[data_df['time'] == frame]
         lon = current_data['lon'].values
         lat = current_data['lat'].values
         ssi = current_data['ssi'].values
-        lon2d, lat2d = np.meshgrid(lon, lat)
-        heatmap.set_array(ssi.ravel())
-        heatmap.set_extent([lon.min(), lon.max(), lat.min(), lat.max()])
+
+        # Update scatter plot data
+        scatter.set_offsets(np.c_[lon, lat])
+        scatter.set_array(ssi)
+
         ax.set_title('Solar Irradiance Heatmap - Time: ' + str(frame))
 
         if ship_data_df is not None:
             ship_frame_data = ship_data_df[ship_data_df['time'] == frame]
             if not ship_frame_data.empty:
-                ship_lat = ship_frame_data['lat'].values[0]
-                ship_lon = ship_frame_data['lon'].values[0]
+                ship_lat = [ship_frame_data['lat'].values[0]]
+                ship_lon = [ship_frame_data['lon'].values[0]]
                 ship_ssi = ship_frame_data['RAD_SW'].values[0]
                 ship_marker.set_data(ship_lon, ship_lat)
                 ssi_label.set_text(f'Ship SSI: {ship_ssi:.2f} W/m²')
-
-                # Update the position of the annotation based on ship_ssi
-                norm_value = (ship_ssi - heatmap.get_clim()[0]) / (heatmap.get_clim()[1] - heatmap.get_clim()[0])
-                ship_ssi_annotation.set_position((cbar.ax.get_position().x0 * fig.get_figwidth() * fig.dpi - 50, norm_value * cbar.ax.get_position().height * fig.get_figheight() * fig.dpi))
-                ship_ssi_annotation.set_text(f'{ship_ssi:.2f} W/m²')
             else:
                 ship_marker.set_data([], [])  # Clear previous data if no data for this frame
-                ship_ssi_annotation.set_text('')  # Clear the annotation if no data
         else:
             ship_marker.set_data([], [])  # Ensure ship_marker is always defined
-            ship_ssi_annotation.set_text('')  # Clear the annotation if no ship data
 
-        return heatmap, ship_marker, ssi_label, ship_ssi_annotation
+        return scatter, ship_marker, ssi_label
 
     ani = animation.FuncAnimation(fig, update, frames=pd.unique(data_df['time']), blit=True)
     ani.save(filename, writer='ffmpeg', fps=30, extra_args=['-preset', 'fast', '-crf', '22'])
@@ -256,7 +248,3 @@ for day_dir in day_directories:
     day_name = os.path.basename(day_dir)  # Extracts the day part from the path
     animation_filename = f'solar_irradiance_animation_{day_name}.mp4'  # Creates a unique filename
     animate_solar_irradiance(all_data_df, animation_filename, ship_data_df)
-
-
-
-

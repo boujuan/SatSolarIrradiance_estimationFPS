@@ -186,12 +186,34 @@ def plot_data(df, variables):
 
     plt.show()
     
+    
+def save_combined_data_to_csv(df, output_path='data/processed/combined_data.csv'):
+    """
+    Saves the combined data from the ship into a CSV file.
+
+    Args:
+    df (DataFrame): The DataFrame containing the ship data.
+    output_path (str): The path where the CSV file will be saved.
+    """
+    # Ensure the output directory exists
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Select only the required columns
+    df_to_save = df[['time', 'latitude', 'longitude', 'radiation']]
+    
+    # Rename columns to match the required format
+    df_to_save.columns = ['time', 'lat', 'lon', 'radiation']
+    
+    # Save to CSV
+    df_to_save.to_csv(output_path, index=False)
+    print(f"Data saved to {output_path}")
+
 # path = 'samos/netcdf/KAOU_20180825v10001.nc'
 # latitude, longitude, time, radiation = read_netcdf(path)
 # print(f"{latitude}, {longitude}")
 # plot_data(time, radiation)
 
-folder_path = 'samos_2017/netcdf'
+folder_path = 'data/samos/2017/netcdf'
 
 variables = ['latitude', 'longitude', 'time', 'radiation']
 variables_to_plot = ['radiation', 'latitude', 'longitude']
@@ -204,5 +226,8 @@ print(df['latitude'].min())
 print(df['latitude'].max())
 print(df['longitude'].min())
 print(df['longitude'].max())
-plot_data(df, variables_to_plot)
+
+save_combined_data_to_csv(df)
+# plot_data(df, variables_to_plot) # Plot animation of ship movement
+
 
