@@ -1,0 +1,14 @@
+# Clear sky index interpolation
+# 0. Get GHI from satellite data
+# 1. We average the positional data of the ship to the hourly data from the satellite to get 1-hour resolution positional data
+# 2. Get clear sky model (CAMPS)
+# 3. Divide GHI from satellite data by CAMPS model : satellite_data / CAMPS = clear_sky_index (1 hour resolution)
+# 4. Interpolate GHI from satellite data to 1-minute resolution
+# 5. Multiply interpolated 1minute clear sky index by GHI from satellite data in 1-minute resolution
+# 6. Add interpolated GHI from satellite data and clear sky GHI
+
+
+
+Cannot do the 3D interpolation the way we wanted because the ship is continuously moving erratically (changing speed and direction) at a rate of (in average) 0.1428 degrees/hour, while our hourly satellite grid resolution is of 0.05 degrees, so averaging the location of the ship hourly would give wildly innacurate results for the satellite pixel size.
+
+In order to interpolate our satellite GHI and upsample the data from 1-hour to 1-minute resolution using the clear-sky model we need accurate latitude and longitude positions in order to match our minute-data from the ship measurements by correlating the position with the clear-sky model. 

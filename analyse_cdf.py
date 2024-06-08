@@ -19,9 +19,16 @@ def print_nc_structure(nc_obj, indent=0):
     # for group_name, group in nc_obj.groups.items():
     #     print(' ' * indent + f"Group: {group_name}")
     #     print_nc_structure(group, indent + 2)
+    
+    lat_data = nc_obj.variables['lat'][:]
+    lon_data = nc_obj.variables['lon'][:]
+    lat_resolution = lat_data[1] - lat_data[0] if len(lat_data) > 1 else 'N/A'
+    lon_resolution = lon_data[1] - lon_data[0] if len(lon_data) > 1 else 'N/A'
+    print(f"Latitude: {lat_data}, Resolution: {lat_resolution}")
+    print(f"Longitude: {lon_data}, Resolution: {lon_resolution}")
 
 def main():
-    folder_path = 'samos/netcdf'
+    folder_path = 'data/satellite/2017/289'
     file_list = os.listdir(folder_path)
     file_number = 0
     file_path = os.path.join(folder_path, file_list[file_number])
