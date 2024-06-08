@@ -1,5 +1,9 @@
 *.code-workspace
-/.vscode
-/.cache
-/132612_adcp
-/data_sat/
+.vscode
+.cache
+.codebuddy
+data/132612_adcp/
+data/samos/2018/
+data/satellite/
+
+

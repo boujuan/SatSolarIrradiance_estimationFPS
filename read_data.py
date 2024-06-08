@@ -100,11 +100,12 @@ def plot_data(df, variables):
         lon_min, lon_max = df['longitude'].min(), df['longitude'].max()
         
         # Add a small buffer to the extent
-        lat_buffer = (lat_max - lat_min) * 0.05
-        lon_buffer = (lon_max - lon_min) * 0.05
+        # lat_buffer = (lat_max - lat_min) * 0.05
+        # lon_buffer = (lon_max - lon_min) * 0.05
         
         # Set the extent of the map
-        ax0.set_extent([lon_min - lon_buffer, lon_max + lon_buffer, lat_min - lat_buffer, lat_max + lat_buffer], crs=ccrs.PlateCarree())
+        # ax0.set_extent([lon_min - lon_buffer, lon_max + lon_buffer, lat_min - lat_buffer, lat_max + lat_buffer], crs=ccrs.PlateCarree())
+        ax0.set_extent([-150, -90, 0, 40], crs=ccrs.PlateCarree())
         
         ax0.coastlines()
         ax0.add_feature(cfeature.LAND)
@@ -190,7 +191,7 @@ def plot_data(df, variables):
 # print(f"{latitude}, {longitude}")
 # plot_data(time, radiation)
 
-folder_path = 'samos/netcdf'
+folder_path = 'samos_2017/netcdf'
 
 variables = ['latitude', 'longitude', 'time', 'radiation']
 variables_to_plot = ['radiation', 'latitude', 'longitude']
