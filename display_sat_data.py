@@ -1,6 +1,4 @@
 import netCDF4 as nc
-# import matplotlib
-# matplotlib.use('Agg')  # Set the backend before importing pyplot
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
@@ -43,13 +41,28 @@ def read_netcdf_with_xarray(path):
     data = xr.open_dataset(path, chunks={})
     return data
 
+def aggregate_netcdf_to_dataframe_xarray_ship(directory):
+    files = glob.glob(os.path.join(directory, '*.nc'))
+    if not files:
+        print(f"No NetCDF files found in directory {directory}.")
+        return pd.DataFrame()  # Return an empty DataFrame if no files are found
+
+    datasets = [xr.open_dataset(file, chunks={"time": 1}).set_coords('time') for file in files]
+    if not datasets:
+        print("No datasets were created from the files.")
+        return pd.DataFrame()  # Return an empty DataFrame if no datasets are created
+
+    combined = xr.concat(datasets, dim='time')
+    df = combined[['time', 'lon', 'lat', 'RAD_SW']].to_dataframe().reset_index()
+    df['time'] = pd.to_datetime(df['time'])
+    return df
+
 def aggregate_netcdf_to_dataframe_xarray(directory):
     files = glob.glob(os.path.join(directory, '*.nc'))
     datasets = [xr.open_dataset(file, chunks={"time": 1}).set_coords('time') for file in files]
     combined = xr.concat(datasets, dim='time')
     df = combined[['time', 'lon', 'lat', 'ssi']].to_dataframe().reset_index()
-    # Convert 'time' to datetime format if it's not already
-    df['time'] = pd.to_datetime(df['time'], infer_datetime_format=True)
+    df['time'] = pd.to_datetime(df['time'])
     return df
 
 def aggregate_netcdf_to_dataframe(directory):
@@ -152,7 +165,7 @@ def print_nc_structure(data, indent=0):
         print(f"{indent_str}Group - {group_name}")
         print_nc_structure(group, indent + 4)
 
-def animate_solar_irradiance(data_df, filename):
+def animate_solar_irradiance(data_df, filename, ship_data_df=None):
     if 'time' not in data_df.columns:
         print("Column 'time' does not exist in DataFrame. Available columns:", data_df.columns)
         return  # Exit the function if 'time' column is not found
@@ -160,42 +173,90 @@ def animate_solar_irradiance(data_df, filename):
     fig, ax = plt.subplots(figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
     ax.coastlines()
     ax.set_extent([-150, -80, 0, 60])
-    scatter = ax.scatter([], [], c=[], cmap='hot', s=10, transform=ccrs.PlateCarree())
+
+    # Dummy initialization with the first frame to avoid empty array issue
+    initial_data = data_df[data_df['time'] == data_df['time'].iloc[0]]
+    lon = initial_data['lon'].values
+    lat = initial_data['lat'].values
+    ssi = initial_data['ssi'].values
+    lon2d, lat2d = np.meshgrid(lon, lat)
+    heatmap = ax.pcolormesh(lon2d, lat2d, ssi, cmap='hot', shading='auto', transform=ccrs.PlateCarree())
+
+    # Create a colorbar on the left of the plot
+    cbar = plt.colorbar(heatmap, orientation='vertical', pad=0.1, aspect=20, location='left')
+    cbar.set_label('Solar Irradiance (W/m²)')
+
+    ship_marker = ax.plot([], [], 'x', color='red', markersize=5, transform=ccrs.Geodetic())[0]
+    ssi_label = ax.text(0.05, 0.95, '', transform=ax.transAxes, color='white', fontsize=12, ha='left', va='top', bbox=dict(facecolor='black', alpha=0.5))
+
+    # Initialize an annotation for ship SSI on the colorbar
+    ship_ssi_annotation = ax.annotate("", xy=(0, 0), xytext=(-40, 0),
+                                      textcoords="offset points", arrowprops=dict(arrowstyle="->", color='red'))
 
     def update(frame):
         current_data = data_df[data_df['time'] == frame]
-        scatter.set_offsets(np.c_[current_data['lon'], current_data['lat']])
-        scatter.set_array(current_data['ssi'])
+        lon = current_data['lon'].values
+        lat = current_data['lat'].values
+        ssi = current_data['ssi'].values
+        lon2d, lat2d = np.meshgrid(lon, lat)
+        heatmap.set_array(ssi.ravel())
+        heatmap.set_extent([lon.min(), lon.max(), lat.min(), lat.max()])
         ax.set_title('Solar Irradiance Heatmap - Time: ' + str(frame))
-        return scatter,
+
+        if ship_data_df is not None:
+            ship_frame_data = ship_data_df[ship_data_df['time'] == frame]
+            if not ship_frame_data.empty:
+                ship_lat = ship_frame_data['lat'].values[0]
+                ship_lon = ship_frame_data['lon'].values[0]
+                ship_ssi = ship_frame_data['RAD_SW'].values[0]
+                ship_marker.set_data(ship_lon, ship_lat)
+                ssi_label.set_text(f'Ship SSI: {ship_ssi:.2f} W/m²')
+
+                # Update the position of the annotation based on ship_ssi
+                norm_value = (ship_ssi - heatmap.get_clim()[0]) / (heatmap.get_clim()[1] - heatmap.get_clim()[0])
+                ship_ssi_annotation.set_position((cbar.ax.get_position().x0 * fig.get_figwidth() * fig.dpi - 50, norm_value * cbar.ax.get_position().height * fig.get_figheight() * fig.dpi))
+                ship_ssi_annotation.set_text(f'{ship_ssi:.2f} W/m²')
+            else:
+                ship_marker.set_data([], [])  # Clear previous data if no data for this frame
+                ship_ssi_annotation.set_text('')  # Clear the annotation if no data
+        else:
+            ship_marker.set_data([], [])  # Ensure ship_marker is always defined
+            ship_ssi_annotation.set_text('')  # Clear the annotation if no ship data
+
+        return heatmap, ship_marker, ssi_label, ship_ssi_annotation
 
     ani = animation.FuncAnimation(fig, update, frames=pd.unique(data_df['time']), blit=True)
     ani.save(filename, writer='ffmpeg', fps=30, extra_args=['-preset', 'fast', '-crf', '22'])
     
 ################################
 
-data_sat_path = 'data_sat_2017/20171017150000-OSISAF-RADFLX-01H-GOES13.nc'
-data_sat = read_netcdf(data_sat_path)
+# data_sat_path = 'data_sat_2017/20171017150000-OSISAF-RADFLX-01H-GOES13.nc'
+# data_sat = read_netcdf(data_sat_path)
 
-print_nc_structure(data_sat)
+# print_nc_structure(data_sat)
 
-# Assuming you have a folder path 'ship_data_folder' containing the ship's NetCDF files
-ship_data = read_folder_samos('samos_2017/netcdf', ['latitude', 'longitude'])
-ship_lat = ship_data['latitude'].values
-ship_lon = ship_data['longitude'].values
+# # Assuming you have a folder path 'ship_data_folder' containing the ship's NetCDF files
+# ship_data = read_folder_samos('samos_2017/netcdf', ['latitude', 'longitude'])
+# ship_lat = ship_data['latitude'].values
+# ship_lon = ship_data['longitude'].values
 
-# Assuming 'data_sat' is the satellite data already read by read_netcdf
-plot_solar_irradiance_heatmap(data_sat, ship_lat, ship_lon)
+# # Assuming 'data_sat' is the satellite data already read by read_netcdf
+# plot_solar_irradiance_heatmap(data_sat, ship_lat, ship_lon)
 
 ################################
 
-# base_directory = 'data_sat'
-# day_directories = [os.path.join(base_directory, d) for d in os.listdir(base_directory) if os.path.isdir(os.path.join(base_directory, d))]
+base_directory = 'data/satellite/2017'
+day_directories = [os.path.join(base_directory, d) for d in os.listdir(base_directory) if os.path.isdir(os.path.join(base_directory, d))]
 
-# for day_dir in day_directories:
-#     print(f"Processing directory: {day_dir}")
-#     all_data_df = aggregate_netcdf_to_dataframe_xarray(day_dir)
-#     day_name = os.path.basename(day_dir)  # Extracts the day part from the path
-#     animation_filename = f'solar_irradiance_animation_{day_name}.mp4'  # Creates a unique filename
-#     animate_solar_irradiance(all_data_df, animation_filename)
+ship_data_df = aggregate_netcdf_to_dataframe_xarray_ship('data/samos/2017/netcdf')
+
+for day_dir in day_directories:
+    print(f"Processing directory: {day_dir}")
+    all_data_df = aggregate_netcdf_to_dataframe_xarray(day_dir)
+    day_name = os.path.basename(day_dir)  # Extracts the day part from the path
+    animation_filename = f'solar_irradiance_animation_{day_name}.mp4'  # Creates a unique filename
+    animate_solar_irradiance(all_data_df, animation_filename, ship_data_df)
+
+
+
 
