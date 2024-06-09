@@ -5,7 +5,7 @@ from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
 import numpy as np
 import os
 import pandas as pd
-import glob
+import dask.dataframe as dd
 import xarray as xr
 from scipy.interpolate import griddata
 
@@ -15,33 +15,37 @@ pd.set_option('display.expand_frame_repr', False)  # Prevent DataFrame repr from
 pd.set_option('display.max_colwidth', None)  # Show full content of each column
 pd.set_option('display.max_rows', None)  # Show all rows of the DataFrame
 
-def aggregate_netcdf_to_dataframe_xarray(directory):
-    files = glob.glob(os.path.join(directory, '*.nc'))
-    datasets = [xr.open_dataset(file, chunks={"time": 1}).set_coords('time') for file in files]
-    combined = xr.concat(datasets, dim='time')
-    df = combined[['time', 'lon', 'lat', 'ssi']].to_dataframe().reset_index()
-    df['time'] = pd.to_datetime(df['time'], format='%Y-%m-%dT%H:%M:%S')  # Ensure format includes hour
-    df = df.dropna(subset=['ssi'])  # Drop rows where 'ssi' is NaN
-    return df
+def aggregate_netcdf_to_dataframe_xarray(directory, desired_lat_range, desired_lon_range):
+    # Use xr.open_mfdataset() to open multiple NetCDF files at once
+    # Use combine='nested' and explicitly specify concat_dim
+    combined = xr.open_mfdataset(
+        os.path.join(directory, '*.nc'),
+        combine='nested',
+        concat_dim='time',  # Explicitly specify the dimension to concatenate along
+        preprocess=lambda ds: ds.assign_coords(time=ds['time']) if 'time' in ds.variables else ds
+    )
+    
+    # Ensure 'time', 'lat', 'lon' are set as coordinates
+    if 'time' not in combined.coords:
+        combined = combined.set_coords('time')
+    if 'lon' not in combined.coords:
+        combined = combined.set_coords('lon')
+    if 'lat' not in combined.coords:
+        combined = combined.set_coords('lat')
+    
+    # Select only the 'ssi' variable
+    ssi_data = combined['ssi']
 
-def resample_ship_data_to_sat_intervals(ship_df, sat_df):
-    # Check if 'time' column exists
-    if 'time' not in ship_df.columns:
-        raise ValueError("Missing 'time' column in ship data DataFrame.")
-    
-    # Convert ship data timestamps to datetime if not already
-    ship_df = ship_df.copy()  # Work on a copy to avoid modifying the original DataFrame
-    ship_df['time'] = pd.to_datetime(ship_df['time'])
-    
-    # Set the index to the 'time' column for resampling
-    ship_df_temp = ship_df.set_index('time')
-    
-    # Resample ship data to 1-hour intervals to match satellite data
-    resampled_ship_df = ship_df_temp.resample('1h').mean().reset_index()
-    
-    # Ensure the resampled ship data has the same timestamps as satellite data
-    resampled_ship_df = resampled_ship_df[resampled_ship_df['time'].isin(sat_df['time'])]
-    return resampled_ship_df
+    # Convert the xarray DataArray to a pandas DataFrame with a MultiIndex
+    ssi_df = ssi_data.to_dataframe(name='ssi').reset_index()
+
+    # Drop rows where 'ssi' is NaN
+    ssi_df = ssi_df.dropna(subset=['ssi'])
+
+    # Filter rows based on the desired latitude and longitude range
+    ssi_df = ssi_df[(ssi_df['lat'].between(*desired_lat_range)) & (ssi_df['lon'].between(*desired_lon_range))]
+
+    return ssi_df
 
 def interpolate_sat_to_ship(ship_df, sat_df):
     # Create an empty list to store the interpolated DataFrames
@@ -53,20 +57,19 @@ def interpolate_sat_to_ship(ship_df, sat_df):
         ship_data = ship_df[ship_df['time'] == timestamp]
         
         # Get the satellite data for the current timestamp
-        sat_data = sat_df[sat_df['time'] == timestamp]
+        sat_data = sat_df.loc[timestamp]
         
         # Extract the latitude, longitude, and ssi values from the satellite data
-        sat_lats = sat_data['lat'].values
-        sat_lons = sat_data['lon'].values
-        sat_ssi = sat_data['ssi'].values
+        sat_lats = sat_data.coords['lat'].values
+        sat_lons = sat_data.coords['lon'].values
+        sat_ssi = sat_data.values.flatten()
         
         # Extract the latitude and longitude values from the ship data
         ship_lats = ship_data['lat'].values
         ship_lons = ship_data['lon'].values
         
         # Perform 2D interpolation using the griddata function from scipy
-        # BUG: 3D interpolation by time
-        interpolated_ssi = griddata((sat_lons, sat_lats, sat_data['time']), sat_ssi, (ship_lons, ship_lats), method='linear')
+        interpolated_ssi = griddata((sat_lons, sat_lats), sat_ssi, (ship_lons, ship_lats), method='linear')
         
         # Create a new DataFrame for the current timestamp
         interpolated_df = pd.DataFrame({
@@ -84,23 +87,58 @@ def interpolate_sat_to_ship(ship_df, sat_df):
     return interpolated_df
 
 satellite_dir = 'data/satellite/2017'
+processed_dir = 'data/processed'
+
 sat_day_dirs = [os.path.join(satellite_dir, d) for d in os.listdir(satellite_dir) if os.path.isdir(os.path.join(satellite_dir, d))]
+print("\nSatellite data structure==================================================>")
+sat_example = xr.open_dataset('data/satellite/2017/307/20171103000000-OSISAF-RADFLX-01H-GOES13.nc')
+print(sat_example)
+
+print(sat_example['lat'].values)
+print(sat_example['lon'].values)
+# print(sat_example['ssi'].isel(time=0).plot())
 
 ship_data_df = pd.read_csv('data/processed/combined_data_ship.csv')
+print("\nShip data==================================================>")
 print(ship_data_df.head())
 print()
 
-for day_dir in sat_day_dirs:
-    print(f"Processing directory: {day_dir}")
-    sat_data_day = aggregate_netcdf_to_dataframe_xarray(day_dir)
-    day_name = os.path.basename(day_dir)
-    print(sat_data_day.head())
+desired_lat_range = (0, 35)
+desired_lon_range = (-130, -105)
 
-    resampled_ship_data = resample_ship_data_to_sat_intervals(ship_data_df, sat_data_day)
-    print(f"Resampled Ship Data for {day_name}:")
-    print(resampled_ship_data.head())
+# Save_CSV = False
+
+print("=============================================================================================")
+for day_dir in sat_day_dirs:
+    # day = os.path.basename(day_dir)
+    # output_file = os.path.join(processed_dir, f'sat_data_{day}.csv')
+    print(f"Processing directory: {day}")
+    print("=============================================================================================")
+    sat_data_day = aggregate_netcdf_to_dataframe_xarray(day_dir, desired_lat_range, desired_lon_range)
+    # if Save_CSV:
+    #     sat_data_day.to_csv(output_file, index=False)
+    
+    print(f"Satellite Data Overview for {day_dir} =========================>")
+    print("First few entries of the dataset:")
+    print(sat_data_day.head())
+    print("\nDataFrame Shape:")
+    print(sat_data_day.shape)
+    print("\nDataFrame Columns:")
+    print(sat_data_day.columns)
+    
+    if not sat_data_day.empty:
+        print("\nSample Data:")
+        print(sat_data_day.sample(5))  # Display a random sample of 5 rows from the DataFrame
+    else:
+        print("\nNo data available after filtering.")
+    
+    print("-"*80)
     
     # Interpolate satellite data to ship positions and compare radiation values
     interpolated_data = interpolate_sat_to_ship(resampled_ship_data, sat_data_day)
     print(f"Interpolated Data for {day_name}:")
     print(interpolated_data.head())
+    
+    break
+    
+    
