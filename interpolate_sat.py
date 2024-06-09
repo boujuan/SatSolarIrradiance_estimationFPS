@@ -67,7 +67,7 @@ def interpolate_sat_to_ship(ship_data_df, sat_data_day_df):
     points += noise
     
     # Perform 3D interpolation
-    interpolated_ssi = griddata(points, values, xi, method='nearest')
+    interpolated_ssi = griddata(points, values, xi, method='linear')
     
     # Create a new DataFrame with the interpolated values
     result_df = ship_data_df.copy()
@@ -162,6 +162,10 @@ for day_dir in sat_day_dirs:
     interpolated_data = interpolate_sat_to_ship(ship_data_day_df, sat_data_day_df)
     print(f"Interpolated Data for {date}:")
     print(interpolated_data.head())
+    
+    output_interpolated_file = os.path.join('data', 'processed', f'interpolated_data_{date}.csv')
+    interpolated_data.to_csv(output_interpolated_file, index=False)
+    print(f"Interpolated data saved to {output_interpolated_file}")
     
     # Plot comparison
     plot_comparison(interpolated_data, date)
