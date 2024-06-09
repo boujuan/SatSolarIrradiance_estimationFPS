@@ -8,6 +8,7 @@ import pandas as pd
 import xarray as xr
 from scipy.interpolate import griddata
 from datetime import datetime
+import glob
 
 # Set display options
 pd.set_option('display.max_columns', None)  # Show all columns
@@ -15,16 +16,34 @@ pd.set_option('display.expand_frame_repr', False)  # Prevent DataFrame repr from
 pd.set_option('display.max_colwidth', None)  # Show full content of each column
 pd.set_option('display.max_rows', None)  # Show all rows of the DataFrame
 
-def aggregate_netcdf_to_dataframe_xarray(directory, desired_lat_range, desired_lon_range):
-    # Use xr.open_mfdataset() to open multiple NetCDF files at once
-    # Use combine='nested' and explicitly specify concat_dim
+def aggregate_netcdf_to_dataframe_xarray(directory, desired_lat_range, desired_lon_range, include_next_day_start=False):
+    # Open multiple NetCDF files
     combined = xr.open_mfdataset(
         os.path.join(directory, '*.nc'),
         combine='nested',
-        concat_dim='time',  # Explicitly specify the dimension to concatenate along
+        concat_dim='time',
         preprocess=lambda ds: ds.assign_coords(time=ds['time']) if 'time' in ds.variables else ds
     )
-    
+
+    # Optionally include the first timestamp from the next day
+    if include_next_day_start:
+        next_day_directory = os.path.join(os.path.dirname(directory), str(int(os.path.basename(directory)) + 1))
+        next_day_pattern = os.path.join(next_day_directory, '*000000-OSISAF-RADFLX-01H-GOES13.nc')
+        next_day_files = glob.glob(next_day_pattern)  # Use glob to find files matching the pattern
+        print("next_day_files: ", next_day_files)
+        if next_day_files:  # Check if any files were found
+            try:
+                next_day_file = xr.open_dataset(next_day_files[0])  # Open the first matching file
+                print("Next day file structure: ", next_day_file)
+                # Extract the time value and add it as a coordinate to the dataset
+                time_value = next_day_file['time'].values
+                next_day_file = next_day_file.expand_dims(time=pd.Index([time_value], name='time'))
+                combined = xr.concat([combined, next_day_file], dim='time')
+            except FileNotFoundError:
+                print("Next day file not found. Proceeding without it.")
+        else:
+            print("No files match the pattern for the next day. Proceeding without it.")
+
     # Ensure 'time', 'lat', 'lon' are set as coordinates
     if 'time' not in combined.coords:
         combined = combined.set_coords('time')
@@ -66,6 +85,10 @@ def interpolate_sat_to_ship(ship_data_df, sat_data_day_df):
     noise = np.random.normal(0, 1e-10, points.shape)
     points += noise
     
+    # Convert seconds since epoch back to datetime for printing
+    last_10_points_time = pd.to_datetime(points[-10:, 0], unit='s', origin='unix')
+    last_10_xi_time = pd.to_datetime(xi[-10:, 0], unit='s', origin='unix')
+        
     # Perform 3D interpolation
     interpolated_ssi = griddata(points, values, xi, method='linear')
     
@@ -105,8 +128,10 @@ def plot_comparison(interpolated_data, day):
     plt.savefig(f'figures/ssi_interp_comparison_{day}.png')
     plt.close()
 
+# INFO: Define satellite and processed directories
 satellite_dir = 'data/satellite/2017'
 processed_dir = 'data/processed'
+include_next_day_start = True
 
 sat_day_dirs = [os.path.join(satellite_dir, d) for d in os.listdir(satellite_dir) if os.path.isdir(os.path.join(satellite_dir, d))]
 print("\nSatellite data structure==================================================>")
@@ -124,9 +149,11 @@ print("\nShip data==================================================>")
 print(ship_data_df.head())
 print()
 
+# INFO: Define desired latitude and longitude range
 desired_lat_range = (0, 35)
 desired_lon_range = (-130, -105)
 
+# INFO: Save satellite data to csv
 # Save_CSV = False
 year = '2017'
 
@@ -138,7 +165,8 @@ for day_dir in sat_day_dirs:
     print(f"Processing directory: {day}")
     print("=============================================================================================")
     ship_data_day_df = ship_data_by_day[date]
-    sat_data_day_df = aggregate_netcdf_to_dataframe_xarray(day_dir, desired_lat_range, desired_lon_range)
+    sat_data_day_df = aggregate_netcdf_to_dataframe_xarray(day_dir, desired_lat_range, desired_lon_range, include_next_day_start)
+    # INFO: Save satellite data to csv
     # if Save_CSV:
     #     sat_data_day.to_csv(output_file, index=False)
     
@@ -163,13 +191,13 @@ for day_dir in sat_day_dirs:
     print(f"Interpolated Data for {date}:")
     print(interpolated_data.head())
     
+    # INFO: Save interpolated data to csv
     output_interpolated_file = os.path.join('data', 'processed', f'interpolated_data_{date}.csv')
     interpolated_data.to_csv(output_interpolated_file, index=False)
     print(f"Interpolated data saved to {output_interpolated_file}")
     
-    # Plot comparison
-    plot_comparison(interpolated_data, date)
-    
+    # INFO: Plot comparison
+    plot_comparison(interpolated_data, date)    
     # break
     
     
