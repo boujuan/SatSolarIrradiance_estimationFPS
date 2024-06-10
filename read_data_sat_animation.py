@@ -84,7 +84,7 @@ def plot_solar_irradiance_heatmap(data, ship_lat=None, ship_lon=None):
 
     print("Adding colorbar...")
     cbar = plt.colorbar(heatmap, orientation='vertical', pad=0.02, aspect=50)
-    cbar.set_label('Solar Irradiance (W/m²)')
+    cbar.set_label('GHI (W/m²)')
 
     print("Finalizing plot...")
     ax.set_title('Solar Irradiance Heatmap with Ship Trajectory')
@@ -95,6 +95,9 @@ def plot_solar_irradiance_heatmap(data, ship_lat=None, ship_lon=None):
     ax.set_yticks(np.arange(0, 60, 10), crs=ccrs.PlateCarree())
     ax.xaxis.set_major_formatter(LongitudeFormatter())
     ax.yaxis.set_major_formatter(LatitudeFormatter())
+
+    ax.xaxis.set_tick_params(which='both', labelbottom=True)
+    ax.yaxis.set_tick_params(which='both', labelleft=True)
 
     # Plot the ship's trajectory if provided
     if ship_lat is not None and ship_lon is not None:
@@ -166,7 +169,9 @@ def animate_solar_irradiance(data_df, filename, ship_data_df=None):
         scatter.set_offsets(np.c_[lon, lat])
         scatter.set_array(ssi)
 
-        ax.set_title('Solar Irradiance Heatmap - Time: ' + str(frame))
+        # Format the frame time for the title
+        formatted_time = pd.to_datetime(frame).strftime('%Y-%m-%d %H:%M')
+        ax.set_title('Satellite Solar Irradiance Heatmap - ' + formatted_time)
 
         if ship_data_df is not None:
             ship_frame_data = ship_data_df[ship_data_df['time'] == frame]
@@ -175,7 +180,7 @@ def animate_solar_irradiance(data_df, filename, ship_data_df=None):
                 ship_lon = ship_frame_data['lon'].values[0]
                 ship_ssi = ship_frame_data['RAD_SW'].values[0]
                 ship_marker.set_data(ship_lon, ship_lat)
-                ssi_label.set_text(f'Ship SSI: {ship_ssi:.2f} W/m²')
+                ssi_label.set_text(f'Ship GHI: {ship_ssi:.2f} W/m²')
             else:
                 ship_marker.set_data([], [])  # Clear previous data if no data for this frame
         else:
@@ -184,7 +189,7 @@ def animate_solar_irradiance(data_df, filename, ship_data_df=None):
         return scatter, ship_marker, ssi_label
 
     ani = animation.FuncAnimation(fig, update, frames=pd.unique(data_df['time']), blit=True)
-    ani.save(filename, writer='ffmpeg', fps=30, extra_args=['-preset', 'fast', '-crf', '22'])
+    ani.save(filename, writer='ffmpeg', fps=15, extra_args=['-preset', 'fast', '-crf', '22'])
     
 ################################
 
