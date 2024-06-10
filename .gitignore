@@ -1,11 +1,10 @@
 *.code-workspace
 .vscode
 .cache
-.codebuddy
 data/RR1720_128312/
 data/samos/2018/
 data/satellite/
 _old/
 data/processed/sat_data*
-
+.codebuddy/db/
 animation2.mp4
