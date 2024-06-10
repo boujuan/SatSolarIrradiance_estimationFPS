@@ -22,14 +22,16 @@ After meeting Saturday:
 Monday Possible tasks (10/06):
 
 1.- find out source of error between satellite interpolated data and ship data for GHI for certain days of high variability for example 20171109.
--> Create a code to plot specific satellite data from specific coordinates and time in the map.
+-> Create a code to plot specific satellite data from specific coordinates and time in the map.*********
 -> Check for the specific grid where the ship is. is it clear-sky looking? perhaps a lonely cloud?
--> Check ship data .nc for other information
+-> Check ship data .nc for other information************
+-------> Scatter plot speed vs error (does the ship speed affect the data (error))*******
+-------> Ship direction correlation
 -> Create code that can read all the data from the ship netcdf at specific given time
 -> Are there local conditions not registered by the satellite?
 
 2.- Create error analysis and plot for all the data.
--> Error, MBE(mean bias error), STDE(standard deviation), MAE(mean absolute error), RMSE(root min absolute error)
+-> Error, MBE(mean bias error)***, STDE(standard deviation), MAE(mean absolute error), RMSE(root min square error)***
 
 3. Plot animation of whole Satellite timeseries with ship movement (read_data_sata_animation.py)
 
@@ -50,3 +52,6 @@ Met Station (SIO MET-System https://service.rvdata.us/info/deviceformat/100557)
 GNSS (3 types: check)
 
 - Add Github Repository link https://github.com/boujuan/SatSolarIrradiance_estimationFPS
+
+--->> CSI > 1 = cloud enhancement, rise of diffuse light from clouds around the sun
+---> check how the moon was that time, to explain ship >0 W/m^2 at night , lights from ship? stars?
