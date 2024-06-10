@@ -1,4 +1,4 @@
-# Satellite Estimated Solar Irradiance Over the Oceans for FPS
+# Satellite Estimated Solar Irradiance Over the Oceans
 
 ### Project by Group 7
 **Course:** Future Power Supply  
