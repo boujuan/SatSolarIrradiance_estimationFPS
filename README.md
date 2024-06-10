@@ -1,15 +1,7 @@
 # Project: Satellite Solar Irradiance Estimation for FPS
 
-This project aims to estimate solar irradiance at the location of a ship using satellite data. The project involves:
-
-1. **Data Acquisition:** Downloading satellite data from the OSI-SAF website and reading ship data from NetCDF files.
-2. **Data Processing:** Preprocessing the satellite data, interpolating it to the ship's location and time, and calculating the clear sky index.
-3. **Data Analysis:** Comparing the interpolated satellite data with the ship's measurements and analyzing the differences using the clear sky index.
-4. **Visualization:** Creating animations and plots to visualize the ship's trajectory, the satellite data, and the comparison between the two.
-
 ## Project Structure
-
-This project aims to estimate solar irradiance at the location of a ship using satellite data. The main steps involved are:
+This project aims to estimate solar irradiance at the location of a ship using satellite data. The project involves:
 
 1. **Data Acquisition:** Downloading satellite data from the OSI-SAF website and reading ship data from NetCDF files.
 2. **Data Processing:** Preprocessing the satellite data, interpolating it to the ship's location and time, and calculating the clear sky index.
@@ -23,9 +15,12 @@ The codebase is primarily written in Python and consists of several scripts and 
 #### Files
 
 - `README.md`: This file provides an overview of the project, usage instructions, configuration details, and dependencies.
-- `read_data.py`: This script reads NetCDF files from a specified directory, extracts relevant variables (latitude, longitude, time, and short-wave radiation), and visualizes the data.
-- `download_satellite_data.py`: This script downloads satellite data from the OSI-SAF website for a specified date range.
-- `process_data.py`: This script preprocesses the satellite data, interpolates it to the ship's location and time, calculates the clear sky index, and performs data analysis and visualization.
+- `analyse_cdf.py`: This script analysis the general structure of a netCDF file for further exploration.
+- `check_sat_grid_trajectory.py`: This script checks and plots the satellite data grid size and compares it to the ship's trajectory hourly to find suitability.
+- `read_data_sat_animation.py`: This script reads NetCDF files from a specified directory, extracts relevant variables (latitude, longitude, time, and short-wave radiation), and creates an animation of the satellite data with the ship's trajectory on the map.
+- `read_data_ship_animation.py`: This script reads the ship's NetCDF files and extracts the relevant variables (latitude, longitude, time, and short-wave radiation), and creates an animation of the ship's trajectory on the map.
+- `webscrap.py`: This script downloads satellite data from the OSI-SAF website for a specified date range.
+- `interpolate_sat.py`: This script interpolates the satellite data to the ship's location and time, generates a CSV file with the interpolated data and plots the interpolated data on a map.
 - Other Python scripts and Jupyter notebooks for specific tasks or exploratory data analysis.
 
 #### Folders
@@ -35,6 +30,7 @@ The codebase is primarily written in Python and consists of several scripts and 
   - `data/samos/`: This folder contains the ship data files in NetCDF format.
   - `data/processed/`: This folder stores processed data files, such as interpolated satellite data and combined ship data in CSV format.
 - `figures/`: This folder contains generated plots and visualizations.
+- `docs/`: This folder contains some helping documentation of the project.
 
 ### Dependencies
 
@@ -71,10 +67,3 @@ The main scripts (`read_data.py`, `download_satellite_data.py`, and `process_dat
 - folder_path: Set this variable to the directory containing your NetCDF files.
 - variables: What to extract from the NetCDF files. Default is ['latitude', 'longitude', 'time', 'radiation'].
 - variables_to_plot: Default is plotting 'radiation' against time and showing the trajectory on the map.
-
-### DEPENDENCIES: ###
-
-- pandas
-- netCDF4 [conda install -c conda-forge netcdf4]
-- matplotlib
-- cartopy
