@@ -1,4 +1,13 @@
-# Project: Satellite Solar Irradiance Estimation for FPS
+# Satellite Estimated Solar Irradiance Over the Oceans for FPS
+
+### Project by Group 7
+**Course:** Future Power Supply  
+**Degree:** Master of Engineering Physics  
+**Institution:** University of Oldenburg  
+**Semester:** Summer Semester 2024  
+
+**Tutor:** [Arindam Roy](#)  
+**Authors:** [Juan Manuel Boullosa Novo](https://github.com/boujuan), Sofiane Saidi
 
 ## Project Structure
 This project aims to estimate solar irradiance at the location of a ship using satellite data. The project involves:
