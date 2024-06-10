@@ -23,23 +23,23 @@ The codebase is primarily written in Python and consists of several scripts and 
 
 #### Files
 
-- `README.md`: This file provides an overview of the project, usage instructions, configuration details, and dependencies.
-- `analyse_cdf.py`: This script analysis the general structure of a netCDF file for further exploration.
-- `check_sat_grid_trajectory.py`: This script checks and plots the satellite data grid size and compares it to the ship's trajectory hourly to find suitability.
-- `read_data_sat_animation.py`: This script reads NetCDF files from a specified directory, extracts relevant variables (latitude, longitude, time, and short-wave radiation), and creates an animation of the satellite data with the ship's trajectory on the map.
-- `read_data_ship_animation.py`: This script reads the ship's NetCDF files and extracts the relevant variables (latitude, longitude, time, and short-wave radiation), and creates an animation of the ship's trajectory on the map.
-- `webscrap.py`: This script downloads satellite data from the OSI-SAF website for a specified date range.
-- `interpolate_sat.py`: This script interpolates the satellite data to the ship's location and time, generates a CSV file with the interpolated data and plots the interpolated data on a map.
+- [`README.md`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/README.md): This file provides an overview of the project, usage instructions, configuration details, and dependencies.
+- [`analyse_cdf.py`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/analyse_cdf.py): This script analysis the general structure of a netCDF file for further exploration.
+- [`check_sat_grid_trajectory.py`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/check_sat_grid_trajectory.py): This script checks and plots the satellite data grid size and compares it to the ship's trajectory hourly to find suitability.
+- [`read_data_sat_animation.py`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/read_data_sat_animation.py): This script reads NetCDF files from a specified directory, extracts relevant variables (latitude, longitude, time, and short-wave radiation), and creates an animation of the satellite data with the ship's trajectory on the map.
+- [`read_data_ship_animation.py`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/read_data_ship_animation.py): This script reads the ship's NetCDF files and extracts the relevant variables (latitude, longitude, time, and short-wave radiation), and creates an animation of the ship's trajectory on the map.
+- [`webscrap.py`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/webscrap.py): This script downloads satellite data from the OSI-SAF website for a specified date range.
+- [`interpolate_sat.py`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/interpolate_sat.py): This script interpolates the satellite data to the ship's location and time, generates a CSV file with the interpolated data and plots the interpolated data on a map.
 - Other Python scripts and Jupyter notebooks for specific tasks or exploratory data analysis.
 
 #### Folders
 
-- `data/`: This folder contains the data files used in the project.
-  - `data/satellite/`: This folder stores the downloaded satellite data files in NetCDF format, organized by year and day.
-  - `data/samos/`: This folder contains the ship data files in NetCDF format.
-  - `data/processed/`: This folder stores processed data files, such as interpolated satellite data and combined ship data in CSV format.
-- `figures/`: This folder contains generated plots and visualizations.
-- `docs/`: This folder contains some helping documentation of the project.
+- [`data/`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/tree/main/data): This folder contains the data files used in the project.
+  - [`data/satellite/`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/tree/main/data/satellite): This folder stores the downloaded satellite data files in NetCDF format, organized by year and day.
+  - [`data/samos/`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/tree/main/data/samos): This folder contains the ship data files in NetCDF format.
+  - [`data/processed/`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/tree/main/data/processed): This folder stores processed data files, such as interpolated satellite data and combined ship data in CSV format.
+- [`figures/`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/tree/main/figures): This folder contains generated plots and visualizations.
+- [`docs/`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/tree/main/docs): This folder contains some helping documentation of the project.
 
 ### Dependencies
 
