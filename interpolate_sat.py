@@ -9,12 +9,65 @@ import xarray as xr
 from scipy.interpolate import griddata
 from datetime import datetime
 import glob
+import pvlib
+from pvlib.location import Location
 
 # Set display options
 pd.set_option('display.max_columns', None)  # Show all columns
 pd.set_option('display.expand_frame_repr', False)  # Prevent DataFrame repr from wrapping
 pd.set_option('display.max_colwidth', None)  # Show full content of each column
 pd.set_option('display.max_rows', None)  # Show all rows of the DataFrame
+
+def calculate_clear_sky_irradiance(ship_data_df, altitude=0):
+    """
+    Calculate the clear sky GHI for each row in the ship_data_df using the Ineichen model with a Linke turbidity factor.
+
+    Parameters:
+    - ship_data_df (pd.DataFrame): DataFrame containing 'time', 'lat', and 'lon' columns.
+    - altitude (float): Altitude in meters above sea level. Default is 0.
+
+    Returns:
+    - ship_data_df (pd.DataFrame): DataFrame with an additional 'clear_sky_ghi' column.
+    """
+    # Ensure 'time' column is in pd.Timestamp format
+    ship_data_df['time'] = pd.to_datetime(ship_data_df['time'])
+
+    # Create a temporary DataFrame to store the results
+    results = []
+
+    # Process each row using vectorized operations
+    for _, row in ship_data_df.iterrows():
+        time = pd.Timestamp(row['time'])
+        lat = row['lat']
+        lon = row['lon']
+
+        # Wrap the time in a DatetimeIndex
+        time_index = pd.DatetimeIndex([time])
+
+        # Create a location object
+        site = Location(latitude=lat, longitude=lon, altitude=altitude)
+
+        # Get solar position for the given time
+        solar_position = site.get_solarposition(times=time_index)
+
+        # Estimate Linke turbidity (could be adjusted or made an input if data is available)
+        linke_turbidity = pvlib.clearsky.lookup_linke_turbidity(time_index, lat, lon)
+
+        # Calculate clear sky irradiance using the Ineichen model
+        clear_sky = site.get_clearsky(time_index, solar_position=solar_position, model='ineichen', linke_turbidity=linke_turbidity)
+
+        # Extract only the GHI value
+        ghi = clear_sky['ghi'].iloc[0]
+
+        # Append result
+        results.append(ghi)
+
+    # Add the results as a new column to the DataFrame
+    ship_data_df['clear_sky_ghi'] = results
+    
+    print(ship_data_df.head())
+
+    return ship_data_df
 
 def aggregate_netcdf_to_dataframe_xarray(directory, desired_lat_range, desired_lon_range, include_next_day_start=False):
     # Open multiple NetCDF files
@@ -85,11 +138,7 @@ def interpolate_sat_to_ship(ship_data_df, sat_data_day_df):
     noise = np.random.normal(0, 1e-10, points.shape)
     points += noise
     
-    # Convert seconds since epoch back to datetime for printing
-    last_10_points_time = pd.to_datetime(points[-10:, 0], unit='s', origin='unix')
-    last_10_xi_time = pd.to_datetime(xi[-10:, 0], unit='s', origin='unix')
-        
-    # Perform 3D interpolation
+    # Perform 3D interpolation using cubic method
     interpolated_ssi = griddata(points, values, xi, method='linear')
     
     # Create a new DataFrame with the interpolated values
@@ -99,8 +148,8 @@ def interpolate_sat_to_ship(ship_data_df, sat_data_day_df):
     # Rename columns for clarity
     result_df.rename(columns={'lat': 'ship_lat', 'lon': 'ship_lon', 'radiation': 'ship_radiation'}, inplace=True)
     
-    # Select and order the desired columns
-    result_df = result_df[['time', 'ship_lat', 'ship_lon', 'ship_radiation', 'interpolated_ssi']]
+    # Select and order the desired columns including 'clear_sky_ghi'
+    result_df = result_df[['time', 'ship_lat', 'ship_lon', 'ship_radiation', 'clear_sky_ghi', 'interpolated_ssi']]
     
     return result_df
 
@@ -116,17 +165,84 @@ def separate_ship_data_by_day(ship_data_df):
     
     return grouped_ship_data
 
-def plot_comparison(interpolated_data, day):
-    plt.figure(figsize=(10, 5))
-    plt.plot(interpolated_data['time'], interpolated_data['ship_radiation'], label='Ship Radiation', color='blue')
-    plt.plot(interpolated_data['time'], interpolated_data['interpolated_ssi'], label='Interpolated SSI', color='red')
-    plt.xlabel('Time')
-    plt.ylabel('Radiation')
-    plt.title('Comparison of Ship Radiation and Interpolated SSI')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(f'figures/ssi_interp_comparison_{day}.png')
-    plt.close()
+def plot_comparison(interpolated_data, day, start_time='15:30', end_time='23:59'):
+    # Convert 'time' column to datetime if not already
+    interpolated_data['time'] = pd.to_datetime(interpolated_data['time'])
+
+    # Filter data within the specified time range
+    if end_time > start_time:
+        mask = (interpolated_data['time'].dt.time >= pd.to_datetime(start_time).time()) & \
+               (interpolated_data['time'].dt.time <= pd.to_datetime(end_time).time())
+    else:  # Over midnight scenario
+        mask = (interpolated_data['time'].dt.time >= pd.to_datetime(start_time).time()) | \
+               (interpolated_data['time'].dt.time <= pd.to_datetime(end_time).time())
+
+    filtered_data = interpolated_data[mask]
+
+    # Proceed with plotting only if there is data to plot
+    if not filtered_data.empty:
+        # Check for any zero values
+        print("Zero values in clear_sky_ghi:", (filtered_data['clear_sky_ghi'] == 0).any())
+        # Mask nighttime values for plotting
+        filtered_data['masked_ship_radiation'] = filtered_data['ship_radiation'].apply(lambda x: 0 if x < 10 else x)
+        filtered_data['masked_interpolated_ssi'] = filtered_data.apply(
+            lambda row: 0 if row['ship_radiation'] < 10 else row['interpolated_ssi'], axis=1
+        )
+
+        # Replace zero or NaN values in 'clear_sky_ghi' to avoid division by zero
+        filtered_data['clear_sky_ghi'].replace(0, np.nan, inplace=True)
+        filtered_data.dropna(subset=['clear_sky_ghi'], inplace=True)
+
+        # Calculate CSI for ship radiation and satellite interpolated SSI
+        filtered_data['ship_csi'] = filtered_data['masked_ship_radiation'] / filtered_data['clear_sky_ghi']
+        filtered_data['sat_csi'] = filtered_data['masked_interpolated_ssi'] / filtered_data['clear_sky_ghi']
+
+        # Create a figure with two subplots
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 10))
+
+        # Plot GHI values
+        ax1.plot(filtered_data['time'], filtered_data['ship_radiation'], label='Ship GHI', color='blue')
+        ax1.plot(filtered_data['time'], filtered_data['interpolated_ssi'], label='Interpolated Satellite GHI', color='red')
+        ax1.plot(filtered_data['time'], filtered_data['clear_sky_ghi'], label='Clear Sky GHI', linestyle=':', color='green')
+        ax1.set_xlabel('Time [UTC MM-DD HH]')
+        ax1.set_ylabel('GHI [W/m^2]')
+        ax1.set_title(f'Comparison of Ship GHI, Interpolated Satellite GHI, and Clear Sky GHI for {datetime.strptime(day, "%Y%m%d").strftime("%d/%m/%Y")}')
+        ax1.legend()
+        ax1.grid(True)
+
+        # Plot CSI values
+        ax2.plot(filtered_data['time'], filtered_data['ship_csi'], label='Ship CSI', color='purple')
+        ax2.plot(filtered_data['time'], filtered_data['sat_csi'], label='Satellite CSI', color='orange')
+        ax2.set_xlabel('Time [UTC MM-DD HH]')
+        ax2.set_ylabel('CSI')
+        # ax2.set_ylim(0, 1)  # CSI ranges from 0 to 1
+        ax2.set_title('Clear Sky Index (CSI) Comparison')
+        ax2.legend()
+        ax2.grid(True)
+
+        # Calculate and display average CSI values
+        avg_ship_csi = filtered_data['ship_csi'].mean()
+        avg_sat_csi = filtered_data['sat_csi'].mean()
+        print("Average Ship CSI:", avg_ship_csi)
+        print("Average Satellite CSI:", avg_sat_csi)
+        textstr = f'Average Ship CSI: {avg_ship_csi:.2f}\nAverage Satellite CSI: {avg_sat_csi:.2f}'
+        props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+        ax2.text(0.05, 0.95, textstr, transform=ax2.transAxes, fontsize=12, verticalalignment='top', bbox=props)
+
+        # Save the plot
+        plt.tight_layout()
+        plt.savefig(f'figures/ssi_csi_comparison_{day}.png')
+        plt.close()
+    else:
+        print("No data available in the specified time range.")
+
+def add_clear_sky_index(interpolated_data):
+    # Calculate CSI for ship radiation
+    interpolated_data['ship_csi'] = interpolated_data['ship_radiation'] / interpolated_data['clear_sky_ghi']    
+    # Calculate CSI for satellite interpolated SSI
+    interpolated_data['sat_csi'] = interpolated_data['interpolated_ssi'] / interpolated_data['clear_sky_ghi']
+    
+    return interpolated_data
 
 # INFO: Define satellite and processed directories
 satellite_dir = 'data/satellite/2017'
@@ -143,6 +259,8 @@ print(sat_example['lon'].values)
 # print(sat_example['ssi'].isel(time=0).plot())
 
 ship_data_df = pd.read_csv('data/processed/combined_data_ship.csv')
+# Calculate clear sky GHI for the entire DataFrame
+ship_data_df = calculate_clear_sky_irradiance(ship_data_df)
 # Separate ship data by day
 ship_data_by_day = separate_ship_data_by_day(ship_data_df)
 print("\nShip data==================================================>")
@@ -191,10 +309,15 @@ for day_dir in sat_day_dirs:
     print(f"Interpolated Data for {date}:")
     print(interpolated_data.head())
     
+    # Add clear sky index
+    interpolated_data = add_clear_sky_index(interpolated_data)
+    print("Data with CSI added:")
+    print(interpolated_data.head())
+    
     # INFO: Save interpolated data to csv
-    output_interpolated_file = os.path.join('data', 'processed', f'interpolated_data_{date}.csv')
-    interpolated_data.to_csv(output_interpolated_file, index=False)
-    print(f"Interpolated data saved to {output_interpolated_file}")
+    # output_interpolated_file = os.path.join('data', 'processed', f'interpolated_data_{date}.csv')
+    # interpolated_data.to_csv(output_interpolated_file, index=False)
+    # print(f"Interpolated data saved to {output_interpolated_file}")
     
     # INFO: Plot comparison
     plot_comparison(interpolated_data, date)    

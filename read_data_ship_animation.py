@@ -184,9 +184,9 @@ def plot_data(df, variables):
     
     ax1.set_xticks(custom_ticks)
     ax1.set_xticklabels(custom_labels, rotation=45)
-    ax1.set_xlabel('Time [Days]')
-    ax1.set_ylabel(variables[0])
-    ax1.set_title(f'Time vs {variables[0]}')
+    ax1.set_xlabel('Time [UTC Days]')
+    ax1.set_ylabel('GHI [W/m^2]')
+    ax1.set_title(f'Ship GHI Time Series')
     ax1.legend()
     
     plt.tight_layout()
@@ -273,6 +273,6 @@ print('radiation', df['radiation'].min() , df['radiation'].max())
 average_speed_degrees_per_hour = calculate_average_speed_degrees_per_hour(df)
 print(f"Calculated Average Speed: {average_speed_degrees_per_hour:.4f} degrees/hour")
 save_combined_data_to_csv(df)
-# plot_data(df, variables_to_plot) # Plot animation of ship movement
+plot_data(df, variables_to_plot) # Plot animation of ship movement
 
 

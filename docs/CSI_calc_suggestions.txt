@@ -1,0 +1,65 @@
+The clear sky index (CSI), also known as the clearness index, is a useful parameter for comparing observed irradiance to the theoretical maximum (clear sky) irradiance under cloudless conditions. It's calculated as the ratio of the measured irradiance to the clear sky irradiance. Here’s how you can approach calculating and using the CSI for your satellite and ship data:
+
+### 1. Calculate Clear Sky Irradiance
+
+First, you need to calculate the clear sky irradiance for both the ship's location and the corresponding satellite data points. This can be done using solar radiation models like the Simplified Solis model, the Ineichen model, or other empirical models that consider atmospheric conditions such as aerosol optical depth, water vapor content, and ozone concentration. Libraries such as PVLIB in Python can be used for this purpose:
+
+-------------------------------------------------------------------------------------
+import pvlib
+
+# Example for calculating clear sky irradiance using the Ineichen model with a Linke turbidity factor
+latitude, longitude, altitude = 36.0, -120.0, 0  # Example coordinates and altitude
+time_index = pd.date_range('2023-01-01 00:00', '2023-01-01 23:59', freq='1min', tz='UTC')
+
+# Create a location object
+site = pvlib.location.Location(latitude, longitude, tz='UTC', altitude=altitude)
+
+# Get solar position
+solar_position = site.get_solarposition(time_index)
+
+# Calculate clear sky GHI
+clear_sky = site.get_clearsky(time_index, model='ineichen', linke_turbidity=pvlib.clearsky.lookup_linke_turbidity(time_index, latitude, longitude))
+-------------------------------------------------------------------------------------
+
+### 2. Interpolate Satellite Data
+
+Since your satellite data is at an hourly resolution and your ship data is at a minute resolution, ensure that the satellite data is interpolated not just spatially to the ship's location but also temporally to match the ship's data timestamps.
+
+### 3. Calculate Clear Sky Index
+For each timestamp and location where you have both measured and clear sky irradiance, calculate the CSI:
+
+csi = measured_irradiance / clear_sky_irradiance
+
+### 4. Analyze and Correct Data
+
+Use the CSI to analyze the conditions at each data point. A CSI close to 1 indicates clear conditions, while significantly lower values indicate cloud cover. You can use the CSI to correct or filter your data, depending on your specific needs (e.g., focusing analysis on clear-sky conditions).
+
+### 5. Statistical Analysis
+
+Consider performing statistical analysis to understand the distribution of CSI values under different conditions and at different times. This can help in further refining the models or in understanding the behavior of irradiance under varying atmospheric conditions.
+
+### 6. Use CSI for Model Validation
+
+You can also use the CSI as a tool to validate or compare different irradiance models by comparing their predicted clear sky values against actual measurements and their corresponding CSI values.
+
+-----------------------------
+1. Calculate Clear Sky Irradiance: Use a solar radiation model to calculate the clear sky irradiance for the specific latitude, longitude, and timestamps of your ship data. This location and time should also correspond to the interpolated satellite data.
+2. Calculate CSI for Both Data Sets: Divide the measured irradiance from both the ship and the satellite by the calculated clear sky irradiance to obtain the CSI for each. This will give you:
+
+   csi_ship = measured_irradiance_ship / clear_sky_irradiance
+   csi_satellite = measured_irradiance_satellite / clear_sky_irradiance
+
+3. Compare CSI Values: By comparing the CSI values from the ship and the satellite, you can assess which measurements were more influenced by meteorological conditions. A CSI close to 1 indicates less atmospheric interference (clearer sky), whereas values significantly lower than 1 suggest more cloud cover or other atmospheric effects.
+4. Hypothesis on CSI Differences: Your hypothesis that the satellite might have a higher CSI than the ship could be valid under certain conditions. Satellites often have fewer obstructions and less atmospheric scattering compared to ship measurements, which might be affected by local weather conditions and sea spray, especially if the sensors are not well-maintained or calibrated.
+5. Further Analysis: If the satellite consistently shows higher CSI values, it suggests its data might be less affected by local atmospheric conditions compared to the ship's data. However, this needs to be verified with thorough analysis and consideration of specific atmospheric conditions at the time of measurements.
+By following these steps, you can effectively use the CSI to understand and correct the differences in irradiance measurements from your two data sources.
+
+---------------
+INTEPRETATION
+
+Satellite data, being interpolated over a larger area and time frame, generally reflects broader atmospheric conditions and is less susceptible to localized phenomena. This broader perspective can smooth out short-term variations and localized effects that might significantly impact ship-based measurements. Here are a few key points to consider:
+1. Spatial Averaging: Satellite data typically covers larger geographic areas even when interpolated to specific points. This averaging can dilute localized atmospheric events like cloud cover, fog, or pollution that might be present in ship-based measurements.
+2. Temporal Resolution: The hourly resolution of satellite data, compared to minute-resolution from ship sensors, means that short-lived weather phenomena which could affect the ship's data might not be as apparent in the satellite data.
+3. Local Effects on Ship: The ship's data can be influenced by very local conditions such as sea spray, local cloud formations, or even instrumental heating effects that wouldn't affect the satellite measurements.
+4. Meteorological Impact: Local weather conditions, such as storms or heavy cloud cover, can affect the ship's data more acutely than the satellite data, which is an average over time and space.
+Given these factors, satellite data might indeed appear to have a higher CSI, suggesting clearer conditions compared to ship data, which could be more affected by localized adverse weather conditions. This difference is something to keep in mind when analyzing and comparing data from these two sources.
