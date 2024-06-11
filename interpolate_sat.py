@@ -19,16 +19,6 @@ pd.set_option('display.max_colwidth', None)  # Show full content of each column
 pd.set_option('display.max_rows', None)  # Show all rows of the DataFrame
 
 def calculate_clear_sky_irradiance(ship_data_df, altitude=0):
-    """
-    Calculate the clear sky GHI for each row in the ship_data_df using the Ineichen model with a Linke turbidity factor.
-
-    Parameters:
-    - ship_data_df (pd.DataFrame): DataFrame containing 'time', 'lat', and 'lon' columns.
-    - altitude (float): Altitude in meters above sea level. Default is 0.
-
-    Returns:
-    - ship_data_df (pd.DataFrame): DataFrame with an additional 'clear_sky_ghi' column.
-    """
     # Ensure 'time' column is in pd.Timestamp format
     ship_data_df['time'] = pd.to_datetime(ship_data_df['time'])
 
@@ -165,6 +155,27 @@ def separate_ship_data_by_day(ship_data_df):
     
     return grouped_ship_data
 
+def calculate_errors(interpolated_data):
+    # Calculate residual errors
+    residuals = interpolated_data['interpolated_ssi'] - interpolated_data['ship_radiation']
+    
+    # Mean Bias Error
+    mbe = residuals.mean()
+    
+    # Root Mean Squared Error
+    rmse = np.sqrt((residuals**2).mean())
+    
+    errors = {
+        'residuals': residuals,
+        'MBE': mbe,
+        'RMSE': rmse
+    }
+    
+    print(f"Mean Bias Error: {mbe}")
+    print(f"Root Mean Squared Error: {rmse}")
+    
+    return errors
+
 def plot_comparison(interpolated_data, day, start_time='15:30', end_time='23:59'):
     # Convert 'time' column to datetime if not already
     interpolated_data['time'] = pd.to_datetime(interpolated_data['time'])
@@ -229,12 +240,82 @@ def plot_comparison(interpolated_data, day, start_time='15:30', end_time='23:59'
         props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
         ax2.text(0.05, 0.95, textstr, transform=ax2.transAxes, fontsize=12, verticalalignment='top', bbox=props)
 
+        # Calculate errors
+        # errors = calculate_errors(filtered_data)
+
+        # Create a secondary axis for errors
+        # ax3 = ax1.twinx()
+        # ax3.plot(filtered_data['time'], errors['residuals'], label='Residuals', color='magenta', linestyle='--')
+        # ax3.set_ylabel('Residuals [W/m^2]')
+        # ax3.legend(loc='upper right')
+
+        # Display error metrics on the plot
+        # textstr_errors = f'MBE: {errors["MBE"]:.2f} W/m^2\nRMSE: {errors["RMSE"]:.2f} W/m^2'
+        # ax3.text(0.05, 0.1, textstr_errors, transform=ax3.transAxes, fontsize=12, verticalalignment='top', bbox=props)
+
         # Save the plot
         plt.tight_layout()
         plt.savefig(f'figures/ssi_csi_comparison_{day}.png')
         plt.close()
     else:
         print("No data available in the specified time range.")
+        
+def plot_errors(interpolated_data, day, start_time='15:30', end_time='23:59'):
+    # Convert 'time' column to datetime if not already
+    interpolated_data['time'] = pd.to_datetime(interpolated_data['time'])
+
+    # Filter data within the specified time range
+    if end_time > start_time:
+        mask = (interpolated_data['time'].dt.time >= pd.to_datetime(start_time).time()) & \
+               (interpolated_data['time'].dt.time <= pd.to_datetime(end_time).time())
+    else:  # Over midnight scenario
+        mask = (interpolated_data['time'].dt.time >= pd.to_datetime(start_time).time()) | \
+               (interpolated_data['time'].dt.time <= pd.to_datetime(end_time).time())
+
+    filtered_data = interpolated_data[mask]
+
+    # Proceed with plotting only if there is data to plot
+    if not filtered_data.empty:
+        # Calculate errors
+        errors = calculate_errors(filtered_data)
+
+        # Create a figure for plotting errors
+        fig, ax = plt.subplots(figsize=(10, 5))
+
+        # Plot residuals
+        ax.plot(filtered_data['time'], errors['residuals'], label='Residuals', color='magenta', linestyle='--')
+        ax.set_xlabel('Time [UTC MM-DD HH]')
+        ax.set_ylabel('Residuals [W/m^2]')
+        ax.set_title(f'Error Analysis for {datetime.strptime(day, "%Y%m%d").strftime("%d/%m/%Y")}')
+        ax.legend()
+        ax.grid(True)
+
+        # Display MBE and RMSE as horizontal lines
+        ax.axhline(y=errors['MBE'], color='blue', linestyle='-', label=f'MBE: {errors["MBE"]:.2f} W/m^2')
+        ax.axhline(y=errors['RMSE'], color='red', linestyle='-', label=f'RMSE: {errors["RMSE"]:.2f} W/m^2')
+        ax.legend()
+
+        # Save the plot
+        plt.tight_layout()
+        plt.savefig(f'figures/error_analysis_{day}.png')
+        plt.close()
+    else:
+        print("No data available in the specified time range.")
+
+    # Adding labels and title
+    ax.set_xlabel('Data Points')
+    ax.set_ylabel('Error Metrics')
+    ax.set_title('Aggregated Error Metrics by Day')
+    ax.legend()
+
+    # Adjust x-ticks to show grouped labels
+    ax.set_xticks(x_pos + width)
+    ax.set_xticklabels([f'Day {i+1}' for i in range(len(days_formatted))])
+
+    # Save and show plot
+    plt.tight_layout()
+    plt.savefig('figures/aggregated_errors_by_days.png')
+    plt.show()
 
 def add_clear_sky_index(interpolated_data):
     # Calculate CSI for ship radiation
@@ -277,6 +358,7 @@ year = '2017'
 
 print("=============================================================================================")
 for day_dir in sat_day_dirs:
+    # break
     day = os.path.basename(day_dir)
     date = datetime.strptime(f"{year}{day}", "%Y%j").strftime('%Y%m%d')
     # output_file = os.path.join(processed_dir, f'sat_data_{day}.csv')
@@ -319,8 +401,10 @@ for day_dir in sat_day_dirs:
     # interpolated_data.to_csv(output_interpolated_file, index=False)
     # print(f"Interpolated data saved to {output_interpolated_file}")
     
-    # INFO: Plot comparison
-    plot_comparison(interpolated_data, date)    
+    # INFO: Plot comparison or errors or both
+    # plot_comparison(interpolated_data, date)
+    plot_errors(interpolated_data, date)
     # break
     
-    
+    #############################################################################
+
