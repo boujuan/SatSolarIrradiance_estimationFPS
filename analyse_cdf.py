@@ -19,7 +19,13 @@ def print_nc_structure(nc_obj, indent=0):
     # for group_name, group in nc_obj.groups.items():
     #     print(' ' * indent + f"Group: {group_name}")
     #     print_nc_structure(group, indent + 2)
+    # Print variable names and their long names
     
+    print("Variable Names and Long Names:")
+    for var_name, variable in nc_obj.variables.items():
+        long_name = variable.getncattr('long_name') if 'long_name' in variable.ncattrs() else 'N/A'
+        print(f"{var_name}: {long_name}")
+
     lat_data = nc_obj.variables['lat'][:]
     lon_data = nc_obj.variables['lon'][:]
     lat_resolution = lat_data[1] - lat_data[0] if len(lat_data) > 1 else 'N/A'
@@ -28,7 +34,7 @@ def print_nc_structure(nc_obj, indent=0):
     print(f"Longitude: {lon_data}, Resolution: {lon_resolution}")
 
 def main():
-    folder_path = 'data/satellite/2017/289'
+    folder_path = 'data/samos/2017/netcdf'
     file_list = os.listdir(folder_path)
     file_number = 0
     file_path = os.path.join(folder_path, file_list[file_number])
