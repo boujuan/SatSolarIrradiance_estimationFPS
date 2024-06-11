@@ -76,7 +76,7 @@ def plot_grid_and_trajectory(satellite_file, ship_trajectory_file, lon_range, la
     plt.show()
 
 # Example usage
-satellite_file = r'data\satellite\2017\288\20171015090000-OSISAF-RADFLX-01H-GOES13.nc'
+satellite_file = r'data\satellite\2017\289\20171016000000-OSISAF-RADFLX-01H-GOES13.nc'
 ship_trajectory_file = r'data\processed\combined_data_ship.csv'
 lon_range = [-125.5, -123.5]
 lat_range = [9, 11]
