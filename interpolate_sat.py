@@ -325,6 +325,80 @@ def add_clear_sky_index(interpolated_data):
     
     return interpolated_data
 
+def plot_aggregated_errors_by_days(days, sat_day_dirs, ship_data_by_day):
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Convert input days to the format used in ship_data_by_day keys
+    days_formatted = [datetime.strptime(day, "%d/%m/%Y").strftime('%Y%m%d') for day in days]
+
+    # Initialize lists to store MBE and RMSE for each day
+    mbe_list = []
+    rmse_list = []
+
+    # Process each day
+    for day in days_formatted:
+        # Extract year and Julian day from the formatted day
+        year, jday = datetime.strptime(day, "%Y%m%d").strftime('%Y %j').split()
+        # Correctly construct the day_dir without repeating the year
+        day_dir = os.path.join(satellite_dir, jday)  # Assuming satellite_dir already includes the year
+
+        print(f"Processing day: {day} - Directory: {day_dir}")
+        if day_dir in sat_day_dirs and day in ship_data_by_day:
+            # Load satellite data for the day
+            sat_data_day_df = aggregate_netcdf_to_dataframe_xarray(day_dir, desired_lat_range, desired_lon_range, include_next_day_start)
+            
+            # Get ship data for the day
+            ship_data_day_df = ship_data_by_day[day]
+            
+            # Interpolate satellite data to ship positions
+            interpolated_data = interpolate_sat_to_ship(ship_data_day_df, sat_data_day_df)
+            
+            # Calculate errors
+            errors = calculate_errors(interpolated_data)
+            
+            # Append errors to lists
+            mbe_list.append(errors['MBE'])
+            rmse_list.append(errors['RMSE'])
+        else:
+            # Append NaN if data is not available
+            mbe_list.append(np.nan)
+            rmse_list.append(np.nan)
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 5))
+    x_pos = np.arange(len(days_formatted))
+    width = 0.35  # width of the bars
+
+    # Plot MBE and RMSE bars
+    rects1 = ax.bar(x_pos - width/2, mbe_list, width, label='MBE', color='blue')
+    rects2 = ax.bar(x_pos + width/2, rmse_list, width, label='RMSE', color='red')
+
+    # Adding labels and title
+    ax.set_xlabel('Days')
+    ax.set_ylabel('Error Metrics')
+    ax.set_title('Aggregated Error Metrics by Day')
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels([datetime.strptime(day, "%Y%m%d").strftime('%d/%m/%Y') for day in days_formatted])
+    ax.legend()
+
+    # Function to attach a text label above each bar displaying its height
+    def autolabel(rects):
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate(f'{height:.2f}',
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom')
+
+    autolabel(rects1)
+    autolabel(rects2)
+
+    plt.tight_layout()
+    plt.savefig('figures/aggregated_errors_by_days.png')
+    plt.show()
+
 # INFO: Define satellite and processed directories
 satellite_dir = 'data/satellite/2017'
 processed_dir = 'data/processed'
@@ -357,8 +431,12 @@ desired_lon_range = (-130, -105)
 year = '2017'
 
 print("=============================================================================================")
+# Call the function before the for loop
+days = ["16/10/2017", "18/10/2017", "20/10/2017", "22/10/2017", "30/10/2017", "09/11/2017"]
+plot_aggregated_errors_by_days(days, sat_day_dirs, ship_data_by_day)
+
 for day_dir in sat_day_dirs:
-    # break
+    break
     day = os.path.basename(day_dir)
     date = datetime.strptime(f"{year}{day}", "%Y%j").strftime('%Y%m%d')
     # output_file = os.path.join(processed_dir, f'sat_data_{day}.csv')
