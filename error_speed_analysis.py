@@ -66,7 +66,10 @@ def read_netcdf_data(directory):
             'speed': speed
         })
 
-        # Append the file data to the list
+        # Filter data to include only times between 16:00 and 23:59
+        file_data = file_data[(file_data['time'].dt.hour >= 16) & (file_data['time'].dt.hour <= 23)]
+
+        # Append the filtered file data to the list
         data_list.append(file_data)
 
         # Close the NetCDF file
@@ -83,9 +86,11 @@ def compute_clear_sky_index_and_error(data):
 
     # Calculate clear sky GHI for each row
     data['clear_sky_ghi'] = data.apply(lambda row: calculate_clear_sky_irradiance(row['time'], row['lat'], row['lon']), axis=1)
+    print("Clear Sky GHI Values:", data['clear_sky_ghi'].head())  # Inspect the first few GHI values
 
-    # Compute clear sky index
-    data['clear_sky_index'] = data['radiation'] / data['clear_sky_ghi']
+    # Handle division by zero by adding a small epsilon to the denominator
+    epsilon = 1e-10
+    data['clear_sky_index'] = data['radiation'] / (data['clear_sky_ghi'] + epsilon)
 
     # Compute error between measured irradiation and clear sky model irradiation
     data['error'] = data['clear_sky_ghi'] - data['radiation']
@@ -181,7 +186,7 @@ data = read_netcdf_data(netcdf_directory)
 data = compute_clear_sky_index_and_error(data)
 
 # Plot error vs. ship speed
-#plot_error_vs_speed(data)
+plot_error_vs_speed(data)
 
 # Plot clear sky index vs. ship speed
-plot_clear_sky_index_vs_speed(data)
+#plot_clear_sky_index_vs_speed(data)
