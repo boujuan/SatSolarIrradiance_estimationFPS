@@ -30,6 +30,7 @@ The codebase is primarily written in Python and consists of several scripts and 
 - [`read_data_ship_animation.py`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/read_data_ship_animation.py): This script reads the ship's NetCDF files and extracts the relevant variables (latitude, longitude, time, and short-wave radiation), and creates an animation of the ship's trajectory on the map.
 - [`webscrap.py`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/webscrap.py): This script downloads satellite data from the OSI-SAF website for a specified date range.
 - [`interpolate_sat.py`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/interpolate_sat.py): This script interpolates the satellite data to the ship's location and time, generates a CSV file with the interpolated data and plots the interpolated data on a map.
+- [`error_speed_analysis.py`](https://github.com/boujuan/SatSolarIrradiance_estimationFPS/blob/main/error_speed_analysis.py): This script analyzes the residuals and the error (MBE, RMSE) between the interpolated satellite data and the ship's measurements for different days and plots the errors.
 - Other Python scripts and Jupyter notebooks for specific tasks or exploratory data analysis.
 
 #### Folders
