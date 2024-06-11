@@ -7,6 +7,9 @@ import pvlib
 from pvlib.location import Location
 import matplotlib.pyplot as plt
 import datetime as dt
+import scipy.stats
+import seaborn as sns
+import statsmodels.api as sm
 
 def calculate_clear_sky_irradiance(time, lat, lon, altitude=0):
     # Create a location object
@@ -175,6 +178,54 @@ def plot_error_vs_speed(data):
         plt.show()
     else:
         print("No data available for plotting.")
+        
+def plot_error_vs_speed_scatter(data):
+    # Create a scatter plot of error vs ship speed with smaller points
+    plt.figure(figsize=(10, 6))
+    plt.scatter(data['speed'], data['error'], color='blue', alpha=0.5, s=2, label='Error (W/m^2) vs Speed')
+
+    # Add a trend line to help visualize correlation
+    z = np.polyfit(data['speed'], data['error'], 1)
+    p = np.poly1d(z)
+    plt.plot(data['speed'], p(data['speed']), "r--")  # Red dashed line for the trend
+
+    plt.xlabel('Ship Speed (knots)')
+    plt.ylabel('Error (W/m^2)')
+    plt.title('Scatter Plot of Error vs. Ship Speed with Trend Line')
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+
+    # Calculate Pearson correlation coefficient and the p-value
+    correlation_coefficient, p_value = scipy.stats.pearsonr(data['speed'], data['error'])
+
+    print("Correlation Coefficient:", correlation_coefficient)
+    print("P-value:", p_value)
+
+def plot_error_vs_speed_with_regression(data):
+    plt.figure(figsize=(10, 6))
+    sns.regplot(x='speed', y='error', data=data, scatter_kws={'color': 'blue', 'alpha': 0.5, 's': 10}, line_kws={'color': 'red'})
+    plt.xlabel('Ship Speed (knots)')
+    plt.ylabel('Error (W/m^2)')
+    plt.title('Regression Plot of Error vs. Ship Speed with Confidence Interval')
+    plt.grid(True)
+    plt.show()
+
+def plot_residuals(data):
+    # Fit a regression model
+    X = sm.add_constant(data['speed'])  # Adds a constant term to the predictor
+    model = sm.OLS(data['error'], X)
+    results = model.fit()
+
+    # Plot residuals
+    plt.figure(figsize=(10, 6))
+    plt.scatter(data['speed'], results.resid, color='blue', alpha=0.5)
+    plt.axhline(y=0, color='r', linestyle='--')
+    plt.xlabel('Ship Speed (knots)')
+    plt.ylabel('Residuals')
+    plt.title('Residual Plot')
+    plt.grid(True)
+    plt.show()
 
 # Set the directory containing the NetCDF files
 netcdf_directory = 'data/samos/2017/netcdf'
@@ -186,7 +237,16 @@ data = read_netcdf_data(netcdf_directory)
 data = compute_clear_sky_index_and_error(data)
 
 # Plot error vs. ship speed
-plot_error_vs_speed(data)
+# plot_error_vs_speed(data)
 
 # Plot clear sky index vs. ship speed
 #plot_clear_sky_index_vs_speed(data)
+
+# Plot error vs. ship speed scatter
+plot_error_vs_speed_scatter(data)
+
+# Plot error vs. ship speed with regression
+plot_error_vs_speed_with_regression(data)
+
+# Plot residuals
+plot_residuals(data)
