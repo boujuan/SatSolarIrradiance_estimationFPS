@@ -6,7 +6,7 @@
 **Institution:** University of Oldenburg  
 **Semester:** Summer Semester 2024  
 
-**Tutor:** [Arindam Roy]([#](https://github.com/apodebota)  
+**Tutor:** [Arindam Roy](https://github.com/apodebota)  
 **Authors:** [Juan Manuel Boullosa Novo](https://github.com/boujuan), Sofiane Saidi
 
 ## Project Structure
